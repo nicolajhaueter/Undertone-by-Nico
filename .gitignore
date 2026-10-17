@@ -1,0 +1,18 @@
+# IntelliJ
+.idea/
+*.iml
+
+# Frontend
+node_modules/
+dist/
+
+# Backend
+target/
+
+# macOS
+.DS_Store
+
+# Local secrets
+.env
+.env.*
+!.env.example
