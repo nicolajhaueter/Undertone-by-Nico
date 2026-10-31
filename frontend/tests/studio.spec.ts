@@ -212,7 +212,7 @@ test('native clipboard keyboard paste imports an image', async ({ page, context 
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
   })
   await page.locator('body').click({ position: { x: 5, y: 5 } })
-  await page.keyboard.press('Control+v')
+  await page.keyboard.press('ControlOrMeta+v')
   await expect(page.locator('.studio-piece')).toHaveCount(1)
   await expect(page.getByRole('button', { name: 'Use original', exact: true })).toBeVisible()
 })
