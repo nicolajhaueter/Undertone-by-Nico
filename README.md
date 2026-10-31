@@ -41,6 +41,11 @@ Image files are stored on disk in `UNDERTONE_IMAGES_DIR`, outside the repository
 | --- | --- | --- |
 | `POST` | `/api/images` | Upload raw JPEG, PNG or WebP bytes (max 20 MB). The format is detected from the bytes. `201` for a new image, `200` with the existing id when identical bytes were stored before. |
 | `GET` | `/api/images/{id}` | The stored image, cacheable indefinitely. |
+| `GET` | `/api/compositions` | All compositions with their pieces, most recently updated first. |
+| `POST` | `/api/compositions` | Create a composition from a title and pieces. |
+| `GET` / `PUT` / `DELETE` | `/api/compositions/{id}` | Read, replace or delete one composition. |
+
+A piece references an uploaded original, an optional cutout and which of the two is shown, plus its position (`x`, `y`), `width` and aspect `ratio` in Studio's 1000 × 700 board space. Piece order is layer order, back to front. When an update or delete leaves an image unused by every composition, its row and file are removed.
 
 Image files are named by the SHA-256 of their content, so duplicates share one file. Studio downscales images to 2000 px on the longest side and converts them to WebP before uploading.
 

@@ -46,6 +46,24 @@ class ImageRepository(private val jdbc: JdbcClient) {
             .update()
     }
 
+    /**
+     * Deletes those of [ids] that no composition piece references any more and
+     * returns their file names. Referenced images are left untouched.
+     */
+    fun deleteUnreferenced(ids: Collection<UUID>): List<String> =
+        if (ids.isEmpty()) emptyList()
+        else jdbc.sql(
+            """
+            delete from images i
+            where i.id in (:ids)
+              and not exists (
+                select 1 from composition_pieces p
+                where p.original_image_id = i.id or p.cutout_image_id = i.id
+              )
+            returning i.file_name
+            """
+        ).param("ids", ids).query { rs, _ -> rs.getString("file_name") }.list()
+
     private fun map(rs: ResultSet) = ImageRecord(
         id = rs.getObject("id", UUID::class.java),
         hash = rs.getString("hash"),

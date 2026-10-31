@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DuplicateKeyException
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.server.ResponseStatusException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -65,6 +67,24 @@ class ImageService(
     fun find(id: UUID): ImageRecord? = images.findById(id)
 
     fun fileOf(image: ImageRecord): Path = directory.resolve(image.fileName)
+
+    /**
+     * Removes images among [ids] that are no longer used by any composition.
+     * Files are deleted only after the surrounding transaction commits, so a
+     * rollback never leaves a database row without its file.
+     */
+    fun deleteUnreferenced(ids: Collection<UUID>) {
+        val fileNames = images.deleteUnreferenced(ids)
+        if (fileNames.isEmpty()) return
+        val removeFiles = { fileNames.forEach { runCatching { Files.deleteIfExists(directory.resolve(it)) } } }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+                override fun afterCommit() = removeFiles()
+            })
+        } else {
+            removeFiles()
+        }
+    }
 
     private fun writeAtomically(target: Path, bytes: ByteArray) {
         if (Files.exists(target)) return
