@@ -1,10 +1,8 @@
 package com.nico.undertone
 
 import org.junit.jupiter.api.Test
-import org.springframework.boot.test.context.SpringBootTest
 
-@SpringBootTest
-class BackendApplicationTests {
+class BackendApplicationTests : IntegrationTest() {
 
 	@Test
 	fun contextLoads() {
