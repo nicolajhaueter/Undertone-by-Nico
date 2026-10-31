@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
+import Archive from './Archive'
 import Studio from './Studio'
+import type { StudioHandle } from './Studio'
 
 type BackendStatus = {
   name: string
@@ -14,6 +16,7 @@ type ConnectionState =
 
 function App() {
   const [activeView, setActiveView] = useState<'studio' | 'archive'>('studio')
+  const studio = useRef<StudioHandle>(null)
 
   const [connection, setConnection] = useState<ConnectionState>({
     state: 'loading',
@@ -119,10 +122,10 @@ function App() {
             </p>
           </div>
 
-          <div hidden={activeView !== 'studio'}><Studio active={activeView === 'studio'} /></div>
-          {activeView === 'archive' && <section className="empty-space" aria-label="Archive collection">
-            <p>Your collection will take shape here.</p>
-          </section>}
+          <div hidden={activeView !== 'studio'}><Studio ref={studio} active={activeView === 'studio'} /></div>
+          {activeView === 'archive' && <Archive onOpen={composition => {
+            if (studio.current?.open(composition)) setActiveView('studio')
+          }} />}
         </main>
 
         <footer className="app-footer">

@@ -24,4 +24,8 @@
 .piece-name { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .size-control { display: inline-flex; align-items: center; gap: 10px; font-size: 12px; }
 .size-control input { width: 110px; accent-color: var(--text); }
+.studio-compose { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 20px; }
+.studio-title { flex: 1 1 220px; min-width: 0; max-width: 420px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); font-family: var(--serif); font-size: 22px; padding: 6px 0; }
+.studio-title::placeholder { color: var(--muted); opacity: .7; }
+.studio-title:focus-visible { outline: none; border-bottom-color: var(--text); }
 @media (max-width: 640px) { .studio-toolbar { gap: 10px; } .studio-toolbar > div { gap: 10px; } .piece-controls { gap: 10px; } .studio-button { padding: 10px 12px; } }
