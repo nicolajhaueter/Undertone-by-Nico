@@ -128,3 +128,91 @@ test('paste imports a clipboard image into the automatic cutout flow', async ({ 
   await page.getByRole('button', { name: 'Studio', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Move pasted-shirt.png' })).toBeVisible()
 })
+
+async function pastePayload(page: import('@playwright/test').Page, base64: string, type = 'image/png', target = 'body') {
+  return page.evaluate(({ base64, type, target }) => {
+    const clipboard = new DataTransfer()
+    clipboard.items.add(new File([Uint8Array.from(atob(base64), value => value.charCodeAt(0))], 'clipboard-image.png', { type }))
+    const event = new ClipboardEvent('paste', { clipboardData: clipboard, bubbles: true, cancelable: true })
+    document.querySelector(target)!.dispatchEvent(event)
+    return event.defaultPrevented
+  }, { base64, type, target })
+}
+
+test('rapid pastes and busy worker preserve the active piece', async ({ page }) => {
+  const data = image.buffer.toString('base64')
+  // Dispatch synchronously so both events arrive before a React render.
+  await page.evaluate(base64 => {
+    for (let index = 0; index < 2; index++) {
+      const clipboard = new DataTransfer()
+      clipboard.items.add(new File([Uint8Array.from(atob(base64), value => value.charCodeAt(0))], 'fast.png', { type: 'image/png' }))
+      document.body.dispatchEvent(new ClipboardEvent('paste', { clipboardData: clipboard, bubbles: true, cancelable: true }))
+    }
+  }, data)
+  await expect(page.locator('.studio-piece')).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'Use original', exact: true })).toBeVisible()
+  const firstImage = await page.locator('.studio-piece img').getAttribute('src')
+  await pastePayload(page, data)
+  await expect(page.getByRole('alert')).toContainText('Wait for the current image')
+  await expect(page.locator('.studio-piece')).toHaveCount(1)
+  await expect(page.locator('.studio-piece img')).toHaveAttribute('src', firstImage!)
+  await page.getByRole('button', { name: 'Use original', exact: true }).click()
+  await pastePayload(page, data)
+  await expect(page.locator('.studio-piece')).toHaveCount(2)
+})
+
+test('paste leaves Archive, editable fields and plain URLs untouched', async ({ page }) => {
+  const data = image.buffer.toString('base64')
+  await page.getByRole('button', { name: 'Archive', exact: true }).click()
+  expect(await pastePayload(page, data)).toBe(false)
+  await page.getByRole('button', { name: 'Studio', exact: true }).click()
+  await page.evaluate(() => {
+    for (const tag of ['input', 'textarea', 'div']) {
+      const element = document.createElement(tag)
+      if (tag === 'div') element.contentEditable = 'true'
+      element.id = `editable-${tag}`
+      document.body.append(element)
+    }
+  })
+  for (const tag of ['input', 'textarea', 'div']) {
+    expect(await pastePayload(page, data, 'image/png', `#editable-${tag}`)).toBe(false)
+  }
+  const prevented = await page.evaluate(() => {
+    const clipboard = new DataTransfer()
+    clipboard.setData('text/plain', 'https://example.com/shirt.png')
+    const event = new ClipboardEvent('paste', { clipboardData: clipboard, bubbles: true, cancelable: true })
+    document.body.dispatchEvent(event)
+    return event.defaultPrevented
+  })
+  expect(prevented).toBe(false)
+  await expect(page.locator('.studio-piece')).toHaveCount(0)
+})
+
+test('pasted images share format, size and decode validation', async ({ page }) => {
+  await pastePayload(page, Buffer.from('<svg/>').toString('base64'), 'image/svg+xml')
+  await expect(page.getByRole('alert')).toHaveText('Choose a JPEG, PNG or WebP image.')
+  await pastePayload(page, Buffer.alloc(16 * 1024 * 1024).toString('base64'))
+  await expect(page.getByRole('alert')).toHaveText('Choose an image smaller than 15 MB.')
+  await pastePayload(page, Buffer.from('broken PNG').toString('base64'))
+  await expect(page.getByRole('alert')).toContainText('could not be opened')
+  await pastePayload(page, image.buffer.toString('base64'))
+  await expect(page.locator('.studio-piece')).toHaveCount(1)
+  await expect(page.getByRole('alert')).toHaveCount(0)
+})
+
+test('native clipboard keyboard paste imports an image', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.evaluate(async () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = 20
+    const context = canvas.getContext('2d')!
+    context.fillStyle = 'navy'
+    context.fillRect(2, 2, 16, 16)
+    const blob = await new Promise<Blob>(resolve => canvas.toBlob(blob => resolve(blob!)))
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+  })
+  await page.locator('body').click({ position: { x: 5, y: 5 } })
+  await page.keyboard.press('Control+v')
+  await expect(page.locator('.studio-piece')).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'Use original', exact: true })).toBeVisible()
+})

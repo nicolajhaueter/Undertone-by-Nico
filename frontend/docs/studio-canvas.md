@@ -27,3 +27,16 @@ Install test browsers once using `npx playwright install chromium`. An existing 
 Browser tests exercise file validation, import, original/cutout switching, drag, resize, keyboard movement, tab retention, removal, retry/cancel, failure fallback and mobile bounds. They simulate only the worker response so they do not depend on model downloads or inference timing. Real-model cutout quality requires a separate clothing-photo check, particularly white garments, fine straps/lace and busy backgrounds. The automated tests do not establish segmentation quality.
 
 Verified in this implementation session: lint and production build passed; five Chromium interaction tests passed. Real-model checks ran on a white-shirt photo (development server) and a shoe photo (production preview). Both produced cutouts; the shoe output included transparent pixels. This is a small functional sample, not a general quality benchmark. Clothing worn by a person retains the person as foreground; this model removes backgrounds rather than isolating the garment from its wearer. Fine details and busy backgrounds still need broader visual evaluation.
+
+
+## Clipboard import
+
+In the Studio tab, copy an actual image (for example, a browser's **Copy image** command or a screenshot copied to the clipboard), then press Cmd+V on macOS or Ctrl+V on Windows. Paste uses the same file validation, positioning and automatic cutout path as Add image. Images are read from the paste event; the application does not poll the clipboard or request clipboard-read permission.
+
+Paste works only while Studio is active. Ordinary text, image-address URLs and HTML without an attached image file are left untouched; this feature does not fetch remote image URLs. Text inputs and editable fields retain their own paste behaviour. If the clipboard contains multiple images, the first image is imported. JPEG, PNG and WebP, the 15 MiB limit and the 24 megapixel limit apply to pasted images too.
+
+Only one import/cutout runs at a time. Pasting during decoding or cutout processing shows a wait message, without cancelling the active image or losing existing pieces. Choose Use original or wait for completion before pasting the next image. Failed cutouts retain the pasted original and can be retried.
+
+Clipboard changes are grouped into two commits: core image import with its integration test, followed by busy/editable-field safeguards with regression tests and documentation. The original Studio commit is not rewritten.
+
+Clipboard verification: lint and production build pass, and all ten Chromium tests pass, including native clipboard image writing followed by Ctrl+V, rapid-paste protection, active-worker protection, editable/Archive exclusions, plain-URL passthrough, and invalid pasted files. Native clipboard permission is granted by the test harness only to seed the clipboard; the application itself uses the user-triggered paste event.

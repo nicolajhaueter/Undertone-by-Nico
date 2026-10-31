@@ -38,6 +38,7 @@ export default function Studio({ active = true }: { active?: boolean }) {
   const timeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const gesture = useRef<Gesture | null>(null)
   const alive = useRef(true)
+  const importing = useRef(false)
   const files = useRef(new Map<string, File>())
   const selected = pieces.find(piece => piece.id === selectedId)
 
@@ -109,6 +110,11 @@ export default function Studio({ active = true }: { active?: boolean }) {
   }
 
   async function importFile(file: File) {
+    // Guard synchronously: several paste events can arrive before React renders.
+    if (importing.current || worker.current) {
+      setError('Wait for the current image to finish, or choose Use original before pasting another.')
+      return
+    }
     setError('')
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
       setError('Choose a JPEG, PNG or WebP image.')
@@ -118,6 +124,7 @@ export default function Studio({ active = true }: { active?: boolean }) {
       setError('Choose an image smaller than 15 MB.')
       return
     }
+    importing.current = true
     setReading(true)
     let url: string | undefined
     try {
@@ -142,6 +149,7 @@ export default function Studio({ active = true }: { active?: boolean }) {
       if (alive.current) setError(cause instanceof Error && cause.message.includes('megapixels')
         ? cause.message : 'This image could not be opened. Try another JPEG, PNG or WebP.')
     } finally {
+      importing.current = false
       if (alive.current) setReading(false)
     }
   }
@@ -153,6 +161,11 @@ export default function Studio({ active = true }: { active?: boolean }) {
   }
 
   const pasteImage = useEffectEvent((event: ClipboardEvent) => {
+    // Preserve normal paste behaviour in present and future text controls.
+    if (event.defaultPrevented) return
+    const target = event.target
+    if (target instanceof HTMLElement &&
+      (target.isContentEditable || target.closest('input, textarea, [role="textbox"]'))) return
     const item = Array.from(event.clipboardData?.items ?? [])
       .find(item => item.kind === 'file' && item.type.startsWith('image/'))
     const file = item?.getAsFile()
@@ -266,7 +279,7 @@ export default function Studio({ active = true }: { active?: boolean }) {
         if (job?.id === selected.id) stopRemoval()
         setPieces(current => current.map(piece => piece.id === selected.id ? { ...piece, useOriginal: !piece.useOriginal } : piece))
       }}>{selected.useOriginal ? 'Use cutout' : 'Use original'}</button>}
-      {!job && <button className="studio-button" onClick={() => {
+      {!job && <button className="studio-button" disabled={reading} onClick={() => {
         const file = files.current.get(selected.id)
         if (file) removeBackground(selected.id, file)
       }}>Retry cutout</button>}
