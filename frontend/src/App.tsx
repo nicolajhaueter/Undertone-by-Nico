@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import './App.css'
+import Studio from './Studio'
 
 type BackendStatus = {
   name: string
@@ -118,18 +119,10 @@ function App() {
             </p>
           </div>
 
-          <section
-              className="empty-space"
-              aria-label={
-                activeView === 'studio' ? 'Studio workspace' : 'Archive collection'
-              }
-          >
-            <p>
-              {activeView === 'studio'
-                  ? 'Your next composition starts here.'
-                  : 'Your collection will take shape here.'}
-            </p>
-          </section>
+          <div hidden={activeView !== 'studio'}><Studio active={activeView === 'studio'} /></div>
+          {activeView === 'archive' && <section className="empty-space" aria-label="Archive collection">
+            <p>Your collection will take shape here.</p>
+          </section>}
         </main>
 
         <footer className="app-footer">
