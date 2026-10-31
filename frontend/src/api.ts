@@ -55,5 +55,7 @@ export async function uploadImage(image: Blob): Promise<string> {
 const json = (method: string, body: unknown): RequestInit =>
   ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 
+export const listCompositions = (signal?: AbortSignal) => request<Composition[]>('/api/compositions', { signal })
 export const createComposition = (input: CompositionInput) => request<Composition>('/api/compositions', json('POST', input))
 export const updateComposition = (id: string, input: CompositionInput) => request<Composition>(`/api/compositions/${id}`, json('PUT', input))
+export const deleteComposition = (id: string) => request<void>(`/api/compositions/${id}`, { method: 'DELETE' })

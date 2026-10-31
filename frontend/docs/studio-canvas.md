@@ -18,6 +18,12 @@ Before uploading, each original and cutout is decoded, downscaled to at most 200
 
 The composition stores the shown version (original or cutout), position, width, aspect ratio, name and layer order. After the first save the button becomes Save changes and updates the same composition; “Unsaved changes” appears when the canvas or title differs from the last save. If the composition was deleted elsewhere in the meantime, saving creates a new one. A failed save leaves the canvas untouched and shows the backend's reason.
 
+## Archive and reopening
+
+Archive lists saved compositions, most recently updated first, each with a preview drawn from the stored images at their saved positions, sizes, shown versions and layer order. Open (or the preview) loads the composition into Studio exactly as saved; if Studio holds unsaved changes, it asks before replacing them and stays in Archive when declined. New clears Studio for a fresh composition, asking first in the same way.
+
+Reopened pieces load their images from the API, so saving again uploads nothing unless a cutout is regenerated. Retry cutout on a reopened piece fetches the stored original once and runs the normal cutout flow. Delete asks for confirmation; the backend then removes images no other composition uses. If the backend is unavailable, Archive says so and offers Try again; Studio keeps working.
+
 ## Removal engine and deployment
 
 `@imgly/background-removal` 1.7.0 runs quantized IS-Net on CPU/WASM inside a dedicated module worker. Images are not uploaded. Model/runtime files download from IMG.LY's default CDN on first use; browser caching can accelerate subsequent runs. Slow/offline/blocked downloads fall back to the original. Each job owns a worker that is terminated on success, cancellation, timeout, removal or unmount.
@@ -32,7 +38,7 @@ Upstream: https://github.com/imgly/background-removal-js
 
 Install test browsers once using `npx playwright install chromium`. An existing browser executable can be selected with `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
 
-`tests/persistence.spec.ts` covers saving against an in-memory fake of the Kotlin API (`tests/fakeApi.ts`), so it needs neither the backend nor a database; the backend has its own integration tests. Browser tests exercise file validation, import, original/cutout switching, drag, resize, keyboard movement, tab retention, removal, retry/cancel, failure fallback and mobile bounds. They simulate only the worker response so they do not depend on model downloads or inference timing. Real-model cutout quality requires a separate clothing-photo check, particularly white garments, fine straps/lace and busy backgrounds. The automated tests do not establish segmentation quality.
+`tests/persistence.spec.ts` covers saving, reload and reopen (positions, sizes, shown version, layer order), New, deletion and offline Archive against an in-memory fake of the Kotlin API (`tests/fakeApi.ts`), so it needs neither the backend nor a database; the backend has its own integration tests. Browser tests exercise file validation, import, original/cutout switching, drag, resize, keyboard movement, tab retention, removal, retry/cancel, failure fallback and mobile bounds. They simulate only the worker response so they do not depend on model downloads or inference timing. Real-model cutout quality requires a separate clothing-photo check, particularly white garments, fine straps/lace and busy backgrounds. The automated tests do not establish segmentation quality.
 
 Verified in this implementation session: lint and production build passed; five Chromium interaction tests passed. Real-model checks ran on a white-shirt photo (development server) and a shoe photo (production preview). Both produced cutouts; the shoe output included transparent pixels. This is a small functional sample, not a general quality benchmark. Clothing worn by a person retains the person as foreground; this model removes backgrounds rather than isolating the garment from its wearer. Fine details and busy backgrounds still need broader visual evaluation.
 

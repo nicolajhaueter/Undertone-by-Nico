@@ -1,8 +1,8 @@
-import { useEffect, useEffectEvent, useRef, useState } from 'react'
-import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useEffectEvent, useImperativeHandle, useRef, useState } from 'react'
+import type { ChangeEvent, PointerEvent as ReactPointerEvent, Ref } from 'react'
 import './Studio.css'
-import { ApiError, createComposition, updateComposition, uploadImage } from './api'
-import type { CompositionInput } from './api'
+import { ApiError, createComposition, imageUrl, updateComposition, uploadImage } from './api'
+import type { Composition, CompositionInput } from './api'
 import { prepareForUpload } from './imagePrep'
 
 type Piece = {
@@ -44,7 +44,12 @@ async function uploadFrom(url: string) {
   return uploadImage(await prepareForUpload(source))
 }
 
-export default function Studio({ active = true }: { active?: boolean }) {
+export type StudioHandle = {
+  /** Loads a saved composition, asking first if it would discard unsaved work. Returns whether it loaded. */
+  open: (composition: Composition) => boolean
+}
+
+export default function Studio({ active = true, ref }: { active?: boolean; ref?: Ref<StudioHandle> }) {
   const [pieces, setPieces] = useState<Piece[]>([])
   const [selectedId, setSelectedId] = useState<string>()
   const [job, setJob] = useState<Job>()
@@ -261,6 +266,67 @@ export default function Studio({ active = true }: { active?: boolean }) {
     setSelectedId(undefined)
   }
 
+  function confirmDiscard() {
+    return !dirty || pieces.length === 0 || window.confirm('Replace the current composition? Unsaved changes will be lost.')
+  }
+
+  function clearCanvas() {
+    stopRemoval()
+    urls.current.forEach(url => URL.revokeObjectURL(url))
+    urls.current.clear()
+    files.current.clear()
+    setPieces([])
+    setSelectedId(undefined)
+    setError('')
+    setSavedNote('')
+  }
+
+  function startNew() {
+    if (!confirmDiscard()) return
+    clearCanvas()
+    setCompositionId(undefined)
+    setTitle('')
+    setSavedSnapshot(EMPTY_SNAPSHOT)
+  }
+
+  function loadComposition(composition: Composition) {
+    if (!confirmDiscard()) return false
+    clearCanvas()
+    const loaded: Piece[] = composition.pieces.map(piece => ({
+      id: crypto.randomUUID(),
+      name: piece.name,
+      original: imageUrl(piece.originalImageId),
+      cutout: piece.cutoutImageId ? imageUrl(piece.cutoutImageId) : undefined,
+      useOriginal: piece.shown === 'original' || !piece.cutoutImageId,
+      x: piece.x, y: piece.y, width: piece.width, ratio: piece.ratio,
+      originalImageId: piece.originalImageId,
+      cutoutImageId: piece.cutoutImageId ?? undefined,
+    }))
+    setPieces(loaded)
+    setCompositionId(composition.id)
+    setTitle(composition.title)
+    setSavedSnapshot(snapshotOf(composition.title, loaded))
+    return true
+  }
+
+  useImperativeHandle(ref, () => ({ open: loadComposition }))
+
+  async function retryCutout(piece: Piece) {
+    let file = files.current.get(piece.id)
+    if (!file) {
+      // Reopened pieces have no local file yet; fetch the stored original once.
+      try {
+        const blob = await (await fetch(piece.original)).blob()
+        file = new File([blob], piece.name, { type: blob.type })
+        files.current.set(piece.id, file)
+      } catch {
+        if (alive.current) setError('The original could not be loaded for a new cutout. Check that the backend is running.')
+        return
+      }
+    }
+    if (alive.current) removeBackground(piece.id, file)
+  }
+
   async function save() {
     if (saving || job || reading || pieces.length === 0) return
     const snapshot = pieces
@@ -334,6 +400,7 @@ export default function Studio({ active = true }: { active?: boolean }) {
       <button className="studio-button primary" disabled={saving || reading || !!job || pieces.length === 0} onClick={() => void save()}>
         {saving ? 'Saving…' : compositionId ? 'Save changes' : 'Save'}
       </button>
+      {(pieces.length > 0 || compositionId) && <button className="studio-button" disabled={saving} onClick={startNew}>New</button>}
       <span className="studio-hint" aria-live="polite">
         {saving ? '' : compositionId && dirty ? 'Unsaved changes' : savedNote}
       </span>
@@ -379,10 +446,7 @@ export default function Studio({ active = true }: { active?: boolean }) {
         if (job?.id === selected.id) stopRemoval()
         setPieces(current => current.map(piece => piece.id === selected.id ? { ...piece, useOriginal: !piece.useOriginal } : piece))
       }}>{selected.useOriginal ? 'Use cutout' : 'Use original'}</button>}
-      {!job && <button className="studio-button" disabled={reading} onClick={() => {
-        const file = files.current.get(selected.id)
-        if (file) removeBackground(selected.id, file)
-      }}>Retry cutout</button>}
+      {!job && <button className="studio-button" disabled={reading || saving} onClick={() => void retryCutout(selected)}>Retry cutout</button>}
       <button className="studio-button" onClick={deleteSelected}>Remove piece</button>
     </div>}
     <p className="studio-note">Drag to arrange · use the corner or Size control to resize · arrow keys move a selected piece</p>
