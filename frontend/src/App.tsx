@@ -119,7 +119,7 @@ function App() {
             </p>
           </div>
 
-          <div hidden={activeView !== 'studio'}><Studio /></div>
+          <div hidden={activeView !== 'studio'}><Studio active={activeView === 'studio'} /></div>
           {activeView === 'archive' && <section className="empty-space" aria-label="Archive collection">
             <p>Your collection will take shape here.</p>
           </section>}

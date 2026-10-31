@@ -109,3 +109,22 @@ test('cancel ignores a late worker result', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Use cutout' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Retry cutout' })).toBeVisible()
 })
+
+
+test('paste imports a clipboard image into the automatic cutout flow', async ({ page }) => {
+  const prevented = await page.evaluate(async base64 => {
+    const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0))
+    const clipboard = new DataTransfer()
+    clipboard.items.add(new File([bytes], 'pasted-shirt.png', { type: 'image/png' }))
+    const event = new ClipboardEvent('paste', { clipboardData: clipboard, bubbles: true, cancelable: true })
+    document.body.dispatchEvent(event)
+    return event.defaultPrevented
+  }, image.buffer.toString('base64'))
+  expect(prevented).toBe(true)
+  await expect(page.getByRole('button', { name: 'Move pasted-shirt.png' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Use original', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Use original', exact: true }).click()
+  await page.getByRole('button', { name: 'Archive', exact: true }).click()
+  await page.getByRole('button', { name: 'Studio', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Move pasted-shirt.png' })).toBeVisible()
+})

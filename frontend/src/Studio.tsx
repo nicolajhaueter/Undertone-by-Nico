@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react'
 import './Studio.css'
 
@@ -25,7 +25,7 @@ const BOARD_WIDTH = 1000
 const BOARD_HEIGHT = 700
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
-export default function Studio() {
+export default function Studio({ active = true }: { active?: boolean }) {
   const [pieces, setPieces] = useState<Piece[]>([])
   const [selectedId, setSelectedId] = useState<string>()
   const [job, setJob] = useState<Job>()
@@ -108,10 +108,7 @@ export default function Studio() {
     }
   }
 
-  async function importImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
+  async function importFile(file: File) {
     setError('')
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
       setError('Choose a JPEG, PNG or WebP image.')
@@ -148,6 +145,28 @@ export default function Studio() {
       if (alive.current) setReading(false)
     }
   }
+
+  function importImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (file) void importFile(file)
+  }
+
+  const pasteImage = useEffectEvent((event: ClipboardEvent) => {
+    const item = Array.from(event.clipboardData?.items ?? [])
+      .find(item => item.kind === 'file' && item.type.startsWith('image/'))
+    const file = item?.getAsFile()
+    if (!file) return
+    event.preventDefault()
+    void importFile(file)
+  })
+
+  useEffect(() => {
+    if (!active) return
+    const onPaste = (event: ClipboardEvent) => pasteImage(event)
+    document.addEventListener('paste', onPaste)
+    return () => document.removeEventListener('paste', onPaste)
+  }, [active])
 
   function begin(event: ReactPointerEvent, piece: Piece, mode: 'move' | 'resize') {
     if (event.button !== 0) return
@@ -202,7 +221,7 @@ export default function Studio() {
       <div>
         <button className="studio-button primary" disabled={reading || !!job} onClick={() => input.current?.click()}>Add image</button>
         <input ref={input} className="file-input" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Choose clothing image" onChange={importImage} />
-        <span className="studio-hint">JPEG, PNG or WebP · up to 15 MB</span>
+        <span className="studio-hint">JPEG, PNG or WebP · up to 15 MB · paste with ⌘V / Ctrl+V</span>
       </div>
       <span className="studio-hint">{pieces.length} {pieces.length === 1 ? 'piece' : 'pieces'}</span>
     </div>
