@@ -2,13 +2,21 @@
 
 ## Run
 
-From `frontend/`, use `npm ci` then `npm run dev`. The Kotlin API remains optional for canvas use; its status continues to appear in the footer.
+From `frontend/`, use `npm ci` then `npm run dev`. Composing works without the Kotlin API; saving needs it and PostgreSQL running (see the root README). Backend status appears in the footer.
 
 Add a local JPEG, PNG or WebP (up to 15 MiB / 24 megapixels). Background removal starts automatically. Drag to move; use the lower-right corner or Size slider to resize with the original proportions. Select a piece to bring it forward. Arrow keys move it; Shift increases the movement. Multiple images are supported; imports are serialized while a cutout is running.
 
 The original remains available. “Use original” during processing cancels the worker. After success, switch between original and cutout. Retry restarts processing. Download or inference failure preserves the original. Removal times out after three minutes rather than leaving the UI blocked indefinitely. Removing a piece releases its image URLs.
 
-Composition state survives Studio/Archive navigation in memory. Reloading clears it. Saving through the Kotlin API, durable storage and Archive entries remain a later milestone.
+Composition state survives Studio/Archive navigation in memory. Unsaved work is lost on reload; the browser asks before leaving while there are unsaved changes.
+
+## Saving
+
+Give the composition a title (optional; it defaults to “Untitled composition”) and choose Save, or press Enter in the title field. Save is unavailable while a cutout is running or the canvas is empty.
+
+Before uploading, each original and cutout is decoded, downscaled to at most 2000 px on its longest side and re-encoded as WebP (quality 0.9), which keeps cutout transparency. Browsers without a WebP encoder fall back to JPEG for JPEG originals and PNG otherwise. Each image is uploaded once; later saves reuse the returned ids, and a regenerated cutout is uploaded as a new image. The server also deduplicates identical bytes.
+
+The composition stores the shown version (original or cutout), position, width, aspect ratio, name and layer order. After the first save the button becomes Save changes and updates the same composition; “Unsaved changes” appears when the canvas or title differs from the last save. If the composition was deleted elsewhere in the meantime, saving creates a new one. A failed save leaves the canvas untouched and shows the backend's reason.
 
 ## Removal engine and deployment
 
@@ -24,7 +32,7 @@ Upstream: https://github.com/imgly/background-removal-js
 
 Install test browsers once using `npx playwright install chromium`. An existing browser executable can be selected with `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
 
-Browser tests exercise file validation, import, original/cutout switching, drag, resize, keyboard movement, tab retention, removal, retry/cancel, failure fallback and mobile bounds. They simulate only the worker response so they do not depend on model downloads or inference timing. Real-model cutout quality requires a separate clothing-photo check, particularly white garments, fine straps/lace and busy backgrounds. The automated tests do not establish segmentation quality.
+`tests/persistence.spec.ts` covers saving against an in-memory fake of the Kotlin API (`tests/fakeApi.ts`), so it needs neither the backend nor a database; the backend has its own integration tests. Browser tests exercise file validation, import, original/cutout switching, drag, resize, keyboard movement, tab retention, removal, retry/cancel, failure fallback and mobile bounds. They simulate only the worker response so they do not depend on model downloads or inference timing. Real-model cutout quality requires a separate clothing-photo check, particularly white garments, fine straps/lace and busy backgrounds. The automated tests do not establish segmentation quality.
 
 Verified in this implementation session: lint and production build passed; five Chromium interaction tests passed. Real-model checks ran on a white-shirt photo (development server) and a shoe photo (production preview). Both produced cutouts; the shoe output included transparent pixels. This is a small functional sample, not a general quality benchmark. Clothing worn by a person retains the person as foreground; this model removes backgrounds rather than isolating the garment from its wearer. Fine details and busy backgrounds still need broader visual evaluation.
 

@@ -1,6 +1,9 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react'
 import './Studio.css'
+import { ApiError, createComposition, updateComposition, uploadImage } from './api'
+import type { CompositionInput } from './api'
+import { prepareForUpload } from './imagePrep'
 
 type Piece = {
   id: string
@@ -12,6 +15,9 @@ type Piece = {
   y: number
   width: number
   ratio: number
+  /** Server ids once uploaded; unset until the first save. */
+  originalImageId?: string
+  cutoutImageId?: string
 }
 
 type Job = { id: string; message: string }
@@ -24,6 +30,19 @@ const MAX_PIXELS = 24_000_000
 const BOARD_WIDTH = 1000
 const BOARD_HEIGHT = 700
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+const UNTITLED = 'Untitled composition'
+
+/** What a save would store; comparing snapshots tells whether there are unsaved changes. */
+const snapshotOf = (title: string, pieces: Piece[]) => JSON.stringify([
+  title.trim(),
+  pieces.map(piece => [piece.original, piece.cutout ?? null, piece.useOriginal, piece.x, piece.y, piece.width]),
+])
+const EMPTY_SNAPSHOT = snapshotOf('', [])
+
+async function uploadFrom(url: string) {
+  const source = await (await fetch(url)).blob()
+  return uploadImage(await prepareForUpload(source))
+}
 
 export default function Studio({ active = true }: { active?: boolean }) {
   const [pieces, setPieces] = useState<Piece[]>([])
@@ -31,6 +50,11 @@ export default function Studio({ active = true }: { active?: boolean }) {
   const [job, setJob] = useState<Job>()
   const [reading, setReading] = useState(false)
   const [error, setError] = useState('')
+  const [title, setTitle] = useState('')
+  const [compositionId, setCompositionId] = useState<string>()
+  const [savedSnapshot, setSavedSnapshot] = useState(EMPTY_SNAPSHOT)
+  const [saving, setSaving] = useState(false)
+  const [savedNote, setSavedNote] = useState('')
   const board = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const urls = useRef(new Set<string>())
@@ -41,6 +65,14 @@ export default function Studio({ active = true }: { active?: boolean }) {
   const importing = useRef(false)
   const files = useRef(new Map<string, File>())
   const selected = pieces.find(piece => piece.id === selectedId)
+  const dirty = snapshotOf(title, pieces) !== savedSnapshot
+
+  useEffect(() => {
+    if (!dirty || pieces.length === 0) return
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty, pieces.length])
 
   function makeUrl(blob: Blob) {
     const url = URL.createObjectURL(blob)
@@ -96,7 +128,7 @@ export default function Studio({ active = true }: { active?: boolean }) {
               URL.revokeObjectURL(piece.cutout)
               urls.current.delete(piece.cutout)
             }
-            return { ...piece, cutout, useOriginal: false }
+            return { ...piece, cutout, cutoutImageId: undefined, useOriginal: false }
           }))
           stopRemoval()
         } else if (data.type === 'error') fail()
@@ -229,6 +261,63 @@ export default function Studio({ active = true }: { active?: boolean }) {
     setSelectedId(undefined)
   }
 
+  async function save() {
+    if (saving || job || reading || pieces.length === 0) return
+    const snapshot = pieces
+    const savedTitle = title.trim() || UNTITLED
+    setSaving(true)
+    setError('')
+    setSavedNote('')
+    try {
+      // Upload only what the server has not seen; reopened pieces already carry ids.
+      const uploaded = new Map<string, { originalImageId: string; cutoutImageId?: string }>()
+      for (const piece of snapshot) {
+        const originalImageId = piece.originalImageId ?? await uploadFrom(piece.original)
+        const cutoutImageId = piece.cutout ? piece.cutoutImageId ?? await uploadFrom(piece.cutout) : undefined
+        uploaded.set(piece.id, { originalImageId, cutoutImageId })
+      }
+      if (!alive.current) return
+      setPieces(current => current.map(piece => {
+        const ids = uploaded.get(piece.id)
+        // A cutout regenerated during the save no longer matches the uploaded one.
+        if (!ids) return piece
+        const sameCutout = snapshot.find(item => item.id === piece.id)?.cutout === piece.cutout
+        return { ...piece, originalImageId: ids.originalImageId, cutoutImageId: sameCutout ? ids.cutoutImageId : piece.cutoutImageId }
+      }))
+
+      const input: CompositionInput = {
+        title: savedTitle,
+        pieces: snapshot.map(piece => {
+          const ids = uploaded.get(piece.id)!
+          return {
+            name: piece.name,
+            originalImageId: ids.originalImageId,
+            cutoutImageId: ids.cutoutImageId ?? null,
+            shown: piece.useOriginal || !ids.cutoutImageId ? 'original' : 'cutout',
+            x: piece.x, y: piece.y, width: piece.width, ratio: piece.ratio,
+          }
+        }),
+      }
+      let saved
+      try {
+        saved = compositionId ? await updateComposition(compositionId, input) : await createComposition(input)
+      } catch (cause) {
+        // Deleted from Archive in the meantime: keep the work as a new composition.
+        if (!(cause instanceof ApiError && cause.status === 404 && compositionId)) throw cause
+        saved = await createComposition(input)
+      }
+      if (!alive.current) return
+      setCompositionId(saved.id)
+      setTitle(saved.title)
+      setSavedSnapshot(snapshotOf(saved.title, snapshot))
+      setSavedNote(`Saved · ${new Date(saved.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`)
+    } catch (cause) {
+      if (alive.current) setError(`Could not save: ${cause instanceof Error ? cause.message : 'the backend is unavailable.'} Your composition is still here.`)
+    } finally {
+      if (alive.current) setSaving(false)
+    }
+  }
+
   return <section className="studio" aria-label="Studio workspace">
     <div className="studio-toolbar">
       <div>
@@ -238,7 +327,18 @@ export default function Studio({ active = true }: { active?: boolean }) {
       </div>
       <span className="studio-hint">{pieces.length} {pieces.length === 1 ? 'piece' : 'pieces'}</span>
     </div>
-    <p className="studio-note">Automatic cutouts, processed on your device. The first image downloads the cutout tools. This workspace lasts until you reload.</p>
+    <div className="studio-compose">
+      <input className="studio-title" type="text" value={title} maxLength={120} placeholder={UNTITLED}
+        aria-label="Composition title" onChange={event => setTitle(event.target.value)}
+        onKeyDown={event => { if (event.key === 'Enter') void save() }} />
+      <button className="studio-button primary" disabled={saving || reading || !!job || pieces.length === 0} onClick={() => void save()}>
+        {saving ? 'Saving…' : compositionId ? 'Save changes' : 'Save'}
+      </button>
+      <span className="studio-hint" aria-live="polite">
+        {saving ? '' : compositionId && dirty ? 'Unsaved changes' : savedNote}
+      </span>
+    </div>
+    <p className="studio-note">Automatic cutouts, processed on your device. The first image downloads the cutout tools. Save to keep a composition in Archive.</p>
     <div className="studio-feedback" aria-live="polite" role="status">
       {reading ? 'Opening image…' : job?.message}
       {job && <button className="text-button" onClick={stopRemoval}>Use original</button>}
