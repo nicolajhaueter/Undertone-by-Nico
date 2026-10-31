@@ -35,6 +35,15 @@ Defaults match `docker-compose.yml`; override with environment variables if need
 
 Image files are stored on disk in `UNDERTONE_IMAGES_DIR`, outside the repository; PostgreSQL holds only their metadata and the compositions.
 
+### API
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/images` | Upload raw JPEG, PNG or WebP bytes (max 20 MB). The format is detected from the bytes. `201` for a new image, `200` with the existing id when identical bytes were stored before. |
+| `GET` | `/api/images/{id}` | The stored image, cacheable indefinitely. |
+
+Image files are named by the SHA-256 of their content, so duplicates share one file. Studio downscales images to 2000 px on the longest side and converts them to WebP before uploading.
+
 ### Tests
 
 Backend: `./mvnw test` from `backend/`. Integration tests start their own disposable PostgreSQL 17 through Testcontainers, so Docker must be running; they do not touch the development database or image folder.
