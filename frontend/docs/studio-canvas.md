@@ -13,6 +13,8 @@ Studio fills the window under the slim app bar and never scrolls the page. The c
 - New pieces land in the middle of the current view at roughly the same on-screen size at any zoom. Pieces can go anywhere; Delete or Backspace removes the focused piece.
 - Opening a composition from Archive fits it into view. Panning and zooming are not saved and do not count as unsaved changes.
 
+The app uses a dark stone theme (charcoal canvas, stone-grey panels, cool off-white text, silver accents). Colours are tokens in `src/index.css`.
+
 Positions are stored in world units. Compositions saved before the infinite canvas used a fixed 1000 × 700 board in the same units, so they reopen unchanged.
 
 Add a local JPEG, PNG or WebP (up to 15 MiB / 24 megapixels). Background removal starts automatically. Drag a piece to move it; use its lower-right corner or the Size slider to resize with the original proportions. Select a piece to bring it forward. Arrow keys move it; Shift increases the movement. Multiple images are supported; imports are serialized while a cutout is running.

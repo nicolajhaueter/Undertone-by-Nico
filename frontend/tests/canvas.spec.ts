@@ -148,3 +148,15 @@ test('opening from Archive fits the current window, even after resizing there', 
   expect(box.x).toBeGreaterThanOrEqual(0)
   expect(box.x + box.width).toBeLessThanOrEqual(390)
 })
+
+test('the app uses the dark theme', async ({ page }) => {
+  const luminance = (rgb: string) => {
+    const [r, g, b] = rgb.match(/\d+/g)!.map(Number)
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+  }
+  const canvas = await page.getByLabel('Outfit composition canvas').evaluate(element => getComputedStyle(element).backgroundColor)
+  const text = await page.locator('body').evaluate(element => getComputedStyle(element).color)
+  expect(luminance(canvas)).toBeLessThan(0.15)
+  expect(luminance(text)).toBeGreaterThan(0.8)
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe('dark')
+})

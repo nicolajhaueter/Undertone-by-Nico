@@ -81,8 +81,8 @@
   background: var(--border);
 }
 
-.backend-status.is-live .backend-dot { background: #6f8a76; }
-.backend-status.is-offline .backend-dot { background: #a5574c; }
+.backend-status.is-live .backend-dot { background: var(--success); }
+.backend-status.is-offline .backend-dot { background: var(--danger); }
 
 .app-main {
   position: relative;

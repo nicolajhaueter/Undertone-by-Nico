@@ -1,10 +1,15 @@
 :root {
-  --background: #e5e7e9;
-  --surface: #eef0f2;
-  --text: #202429;
-  --muted: #59616b;
-  --border: #b9bfc6;
-  --accent: #455e74;
+  /* Dark stone: charcoal canvas, stone-grey panels, cool off-white text, silver accents. */
+  --background: #17191c;
+  --surface: #202327;
+  --canvas: #111315;
+  --text: #e3e5e8;
+  --muted: #8a919a;
+  --border: #33373d;
+  --accent: #aab4be;
+  --danger: #d28a7f;
+  --danger-surface: #3a2421;
+  --success: #7fa58a;
 
   --sans: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --serif: 'Bodoni 72', Didot, 'Times New Roman', serif;
@@ -14,7 +19,7 @@
   line-height: 1.5;
   color: var(--text);
   background: var(--background);
-  color-scheme: light;
+  color-scheme: dark;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -77,6 +82,6 @@ img {
 }
 
 ::selection {
-  background: #c2cdd8;
-  color: #202429;
+  background: #4a525b;
+  color: #f2f3f5;
 }
