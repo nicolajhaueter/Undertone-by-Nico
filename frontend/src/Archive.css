@@ -1,4 +1,4 @@
-.archive { margin-top: 40px; }
+.archive { margin: 0; }
 .archive-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 40px 32px; }
 .archive-card { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .archive-preview { position: relative; display: block; width: 100%; aspect-ratio: 10 / 7; overflow: hidden; padding: 0; border: 1px solid var(--border); background: var(--surface); cursor: pointer; transition: border-color .2s ease; }
