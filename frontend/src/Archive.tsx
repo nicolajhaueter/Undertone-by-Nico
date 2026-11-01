@@ -10,6 +10,32 @@ type State =
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 
+// Preview cards are 10:7; lay pieces out in that 1000 x 700 frame.
+const FRAME_WIDTH = 1000
+const FRAME_HEIGHT = 700
+const FILL = 0.84
+
+/**
+ * Pieces can sit anywhere on the infinite canvas, so each preview frames the
+ * composition's own bounds, centred, keeping proportions. Returns CSS percentages.
+ */
+function previewLayout(pieces: Composition['pieces']) {
+  if (pieces.length === 0) return []
+  const left = Math.min(...pieces.map(piece => piece.x))
+  const top = Math.min(...pieces.map(piece => piece.y))
+  const right = Math.max(...pieces.map(piece => piece.x + piece.width))
+  const bottom = Math.max(...pieces.map(piece => piece.y + piece.width / piece.ratio))
+  const scale = Math.min(FRAME_WIDTH * FILL / (right - left), FRAME_HEIGHT * FILL / (bottom - top))
+  const offsetX = (FRAME_WIDTH - (right - left) * scale) / 2
+  const offsetY = (FRAME_HEIGHT - (bottom - top) * scale) / 2
+  return pieces.map(piece => ({
+    left: `${(offsetX + (piece.x - left) * scale) / FRAME_WIDTH * 100}%`,
+    top: `${(offsetY + (piece.y - top) * scale) / FRAME_HEIGHT * 100}%`,
+    width: `${piece.width * scale / FRAME_WIDTH * 100}%`,
+    aspectRatio: piece.ratio,
+  }))
+}
+
 export default function Archive({ onOpen }: { onOpen: (composition: Composition) => void }) {
   const [view, setView] = useState<State>({ state: 'loading' })
   const [attempt, setAttempt] = useState(0)
@@ -63,11 +89,11 @@ export default function Archive({ onOpen }: { onOpen: (composition: Composition)
   return <section className="archive" aria-label="Archive collection">
     {error && <p className="archive-error" role="alert">{error}</p>}
     <ul className="archive-grid">
-      {view.compositions.map(composition => <li key={composition.id} className="archive-card">
+      {view.compositions.map(composition => { const layout = previewLayout(composition.pieces); return <li key={composition.id} className="archive-card">
         <button className="archive-preview" aria-label={`Open ${composition.title}`} onClick={() => onOpen(composition)}>
           {composition.pieces.map((piece, index) => <img key={index} alt="" draggable={false}
             src={imageUrl(piece.shown === 'cutout' && piece.cutoutImageId ? piece.cutoutImageId : piece.originalImageId)}
-            style={{ left: `${piece.x / 10}%`, top: `${piece.y / 7}%`, width: `${piece.width / 10}%`, aspectRatio: piece.ratio }} />)}
+            style={layout[index]} />)}
         </button>
         <div className="archive-meta">
           <h2>{composition.title}</h2>
@@ -81,7 +107,7 @@ export default function Archive({ onOpen }: { onOpen: (composition: Composition)
             <button className="archive-action" aria-label={`Delete ${composition.title}`} onClick={() => void remove(composition)}>Delete</button>
           </div>
         </div>
-      </li>)}
+      </li> })}
     </ul>
   </section>
 }

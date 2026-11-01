@@ -45,7 +45,7 @@ Image files are stored on disk in `UNDERTONE_IMAGES_DIR`, outside the repository
 | `POST` | `/api/compositions` | Create a composition from a title and pieces. |
 | `GET` / `PUT` / `DELETE` | `/api/compositions/{id}` | Read, replace or delete one composition. |
 
-A piece references an uploaded original, an optional cutout and which of the two is shown, plus its position (`x`, `y`), `width` and aspect `ratio` in Studio's 1000 × 700 board space. Piece order is layer order, back to front. When an update or delete leaves an image unused by every composition, its row and file are removed.
+A piece references an uploaded original, an optional cutout and which of the two is shown, plus its position (`x`, `y`), `width` and aspect `ratio` in Studio's world units (the infinite canvas at 100 % zoom; compositions saved earlier sit within 1000 × 700). Piece order is layer order, back to front. When an update or delete leaves an image unused by every composition, its row and file are removed.
 
 Image files are named by the SHA-256 of their content, so duplicates share one file. Studio downscales images to 2000 px on the longest side and converts them to WebP before uploading.
 

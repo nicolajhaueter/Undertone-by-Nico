@@ -4,7 +4,20 @@
 
 From `frontend/`, use `npm ci` then `npm run dev`. Composing works without the Kotlin API; saving needs it and PostgreSQL running (see the root README). Backend status appears in the footer.
 
-Add a local JPEG, PNG or WebP (up to 15 MiB / 24 megapixels). Background removal starts automatically. Drag to move; use the lower-right corner or Size slider to resize with the original proportions. Select a piece to bring it forward. Arrow keys move it; Shift increases the movement. Multiple images are supported; imports are serialized while a cutout is running.
+## Workspace
+
+Studio fills the window under the slim app bar and never scrolls the page. The canvas is infinite and borderless, with a dot grid that moves and scales with it. Controls float over it: title and save state top left, New and Save top right, Add image at the bottom, the selected piece's controls just above, zoom bottom right, and progress or error messages as toasts at the top.
+
+- **Pan:** drag empty space, hold Space and drag anywhere, or scroll with a trackpad or mouse wheel.
+- **Zoom:** pinch on a trackpad or ⌘/Ctrl-scroll (zooms around the cursor), the − / + buttons, ⌘= and ⌘−. Click the percentage or press ⌘0 for 100 %; Fit or ⇧1 frames all pieces. Range 10–400 %.
+- New pieces land in the middle of the current view at roughly the same on-screen size at any zoom. Pieces can go anywhere; Delete or Backspace removes the focused piece.
+- Opening a composition from Archive fits it into view. Panning and zooming are not saved and do not count as unsaved changes.
+
+The app uses a dark stone theme (charcoal canvas, stone-grey panels, cool off-white text, silver accents). Colours are tokens in `src/index.css`.
+
+Positions are stored in world units. Compositions saved before the infinite canvas used a fixed 1000 × 700 board in the same units, so they reopen unchanged.
+
+Add a local JPEG, PNG or WebP (up to 15 MiB / 24 megapixels). Background removal starts automatically. Drag a piece to move it; use its lower-right corner or the Size slider to resize with the original proportions. Select a piece to bring it forward. Arrow keys move it; Shift increases the movement. Multiple images are supported; imports are serialized while a cutout is running.
 
 The original remains available. “Use original” during processing cancels the worker. After success, switch between original and cutout. Retry restarts processing. Download or inference failure preserves the original. Removal times out after three minutes rather than leaving the UI blocked indefinitely. Removing a piece releases its image URLs.
 
@@ -20,7 +33,7 @@ The composition stores the shown version (original or cutout), position, width, 
 
 ## Archive and reopening
 
-Archive lists saved compositions, most recently updated first, each with a preview drawn from the stored images at their saved positions, sizes, shown versions and layer order. Open (or the preview) loads the composition into Studio exactly as saved; if Studio holds unsaved changes, it asks before replacing them and stays in Archive when declined. New clears Studio for a fresh composition, asking first in the same way.
+Archive lists saved compositions, most recently updated first, under the same slim app bar. Each preview frames the composition's own bounds, centred in the card, wherever it sits on the infinite canvas, using the stored images with their saved sizes, shown versions and layer order. Open (or the preview) loads the composition into Studio exactly as saved; if Studio holds unsaved changes, it asks before replacing them and stays in Archive when declined. New clears Studio for a fresh composition, asking first in the same way.
 
 Reopened pieces load their images from the API, so saving again uploads nothing unless a cutout is regenerated. Retry cutout on a reopened piece fetches the stored original once and runs the normal cutout flow. Delete asks for confirmation; the backend then removes images no other composition uses. If the backend is unavailable, Archive says so and offers Try again; Studio keeps working.
 

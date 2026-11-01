@@ -109,7 +109,7 @@ test('save, reload and reopen restores the composition exactly', async ({ page }
   await expect(page.locator('.archive-preview img')).toHaveCount(1)
   await page.getByRole('button', { name: 'Open', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: 'Studio', level: 1 })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Studio', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(piece).toHaveAttribute('style', style!)
   await expect(page.getByLabel('Composition title')).toHaveValue('Grey Saturday')
   await expect(page.getByRole('button', { name: 'Save changes' })).toBeVisible()
@@ -163,7 +163,7 @@ test('opening asks before replacing unsaved work, and New starts fresh', async (
   await page.getByRole('button', { name: 'Archive', exact: true }).click()
   page.once('dialog', dialog => dialog.dismiss())
   await page.getByRole('button', { name: 'Open Kept' }).click()
-  await expect(page.getByRole('heading', { name: 'Archive', level: 1 })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Archive', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
   page.once('dialog', dialog => dialog.accept())
   await page.getByRole('button', { name: 'Open Kept' }).click()
@@ -197,7 +197,7 @@ test('retry cutout works on a reopened piece', async ({ page }) => {
   await page.getByRole('button', { name: 'Move shirt.png' }).focus()
   await page.getByRole('button', { name: 'Retry cutout' }).click()
   // Retry fetches the stored original before the worker starts.
-  await expect(page.getByRole('status')).toContainText(/cutout|background/i)
+  await expect(page.getByText(/Preparing background removal|cutout tools|Separating your piece/)).toBeVisible()
   await finishCutout(page)
   await expect(page.locator('.studio-piece img')).toHaveAttribute('src', /^blob:/)
   await expect(page.getByText('Unsaved changes')).toBeVisible()
@@ -212,4 +212,26 @@ test('archive explains when the backend is unavailable', async ({ page }) => {
   await page.unroute('**/api/compositions', outage)
   await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.getByText('Your collection will take shape here.')).toBeVisible()
+})
+
+test('archive previews frame compositions wherever they sit on the canvas', async ({ page }) => {
+  await page.getByLabel('Choose clothing image').setInputFiles(image)
+  await page.getByRole('button', { name: 'Use original', exact: true }).click()
+  const piece = page.getByRole('button', { name: 'Move shirt.png' })
+  await piece.focus()
+  // Far beyond where the old fixed board ended.
+  for (let i = 0; i < 150; i++) await page.keyboard.press('Shift+ArrowRight')
+  await page.getByLabel('Composition title').fill('Off to the side')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByText(/^Saved · /)).toBeVisible()
+  expect([...api.compositions.values()][0].pieces[0].x).toBeGreaterThan(2000)
+
+  await page.getByRole('button', { name: 'Archive', exact: true }).click()
+  const frame = (await page.locator('.archive-preview').boundingBox())!
+  const preview = (await page.locator('.archive-preview img').boundingBox())!
+  expect(preview.x).toBeGreaterThanOrEqual(frame.x)
+  expect(preview.x + preview.width).toBeLessThanOrEqual(frame.x + frame.width + 1)
+  expect(preview.y + preview.height).toBeLessThanOrEqual(frame.y + frame.height + 1)
+  // Centred in the card.
+  expect(preview.x + preview.width / 2).toBeCloseTo(frame.x + frame.width / 2, -1)
 })

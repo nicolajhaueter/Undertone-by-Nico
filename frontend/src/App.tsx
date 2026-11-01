@@ -72,76 +72,51 @@ function App() {
     return () => controller.abort()
   }, [])
 
+  const status =
+      connection.state === 'loading' ? { tone: 'pending', label: 'Connecting to backend…' }
+      : connection.state === 'error' ? { tone: 'offline', label: 'Backend unavailable' }
+      : connection.data.status === 'running' ? { tone: 'live', label: 'Backend connected' }
+      : { tone: 'pending', label: `Backend: ${connection.data.status}` }
+
   return (
       <div className="app-shell">
-        <header className="app-header">
+        <header className="app-bar">
           <a className="wordmark" href="/">
             <span className="wordmark-title">Undertone</span>
             <span className="wordmark-signature">by Nico</span>
           </a>
 
           <nav className="main-nav" aria-label="Main navigation">
-            <button
-                type="button"
-                className={
-                  activeView === 'studio' ? 'nav-link is-active' : 'nav-link'
-                }
-                aria-pressed={activeView === 'studio'}
-                onClick={() => setActiveView('studio')}
-            >
-              Studio
-            </button>
-
-            <button
-                type="button"
-                className={
-                  activeView === 'archive' ? 'nav-link is-active' : 'nav-link'
-                }
-                aria-pressed={activeView === 'archive'}
-                onClick={() => setActiveView('archive')}
-            >
-              Archive
-            </button>
+            {(['studio', 'archive'] as const).map(view => (
+                <button
+                    key={view}
+                    type="button"
+                    className={activeView === view ? 'nav-link is-active' : 'nav-link'}
+                    aria-pressed={activeView === view}
+                    onClick={() => setActiveView(view)}
+                >
+                  {view === 'studio' ? 'Studio' : 'Archive'}
+                </button>
+            ))}
           </nav>
 
-          <span className="header-caption">A personal fashion space</span>
+          <span className={`backend-status is-${status.tone}`} role="status" title={status.label}>
+            <span className="backend-dot" aria-hidden="true" />
+            <span className="visually-hidden">{status.label}</span>
+          </span>
         </header>
 
-        <main className="view-content">
-          <div className="view-heading">
-            <p className="eyebrow">
-              {activeView === 'studio' ? '01 / Workspace' : '02 / Collection'}
-            </p>
-
-            <h1>{activeView === 'studio' ? 'Studio' : 'Archive'}</h1>
-
-            <p className="view-description">
-              {activeView === 'studio'
-                  ? 'A space to explore pieces, study details, and compose looks.'
-                  : 'A collection of looks, references, and ideas to return to.'}
-            </p>
+        <main className="app-main">
+          <h1 className="visually-hidden">{activeView === 'studio' ? 'Studio' : 'Archive'}</h1>
+          <div className="studio-host" hidden={activeView !== 'studio'}>
+            <Studio ref={studio} active={activeView === 'studio'} />
           </div>
-
-          <div hidden={activeView !== 'studio'}><Studio ref={studio} active={activeView === 'studio'} /></div>
-          {activeView === 'archive' && <Archive onOpen={composition => {
-            if (studio.current?.open(composition)) setActiveView('studio')
-          }} />}
+          {activeView === 'archive' && <div className="archive-host">
+            <Archive onOpen={composition => {
+              if (studio.current?.open(composition)) setActiveView('studio')
+            }} />
+          </div>}
         </main>
-
-        <footer className="app-footer">
-          <span>Undertone by Nico</span>
-
-          <span aria-live="polite">
-          {connection.state === 'loading' && 'Connecting…'}
-
-            {connection.state === 'success' &&
-                (connection.data.status === 'running'
-                    ? 'Backend connected'
-                    : `Backend: ${connection.data.status}`)}
-
-            {connection.state === 'error' && 'Backend unavailable'}
-        </span>
-        </footer>
       </div>
   )
 }

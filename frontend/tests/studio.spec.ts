@@ -85,17 +85,19 @@ test('rejects unsupported, oversized and corrupt images', async ({ page }) => {
   await expect(page.locator('.studio-piece')).toHaveCount(0)
 })
 
-test('mobile layout stays within viewport and pieces remain bounded', async ({ page }) => {
+test('mobile layout fills the screen without scrolling', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByLabel('Choose clothing image').setInputFiles(image)
   await page.getByRole('button', { name: 'Use original', exact: true }).click()
   const piece = page.getByRole('button', { name: 'Move shirt.png' })
   await piece.focus()
-  for (let i = 0; i < 80; i++) await page.keyboard.press('Shift+ArrowRight')
-  const bounds = await page.locator('.studio-board').boundingBox()
-  const rect = await piece.boundingBox()
-  expect(rect!.x + rect!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width + 1)
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  const before = await piece.boundingBox()
+  for (let i = 0; i < 10; i++) await page.keyboard.press('Shift+ArrowRight')
+  expect((await piece.boundingBox())!.x).toBeGreaterThan(before!.x)
+  const scroll = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight }))
+  expect(scroll.width).toBeLessThanOrEqual(390)
+  expect(scroll.height).toBeLessThanOrEqual(844)
+  for (const name of ['Add image', 'Save', 'Zoom in']) await expect(page.getByRole('button', { name, exact: true })).toBeInViewport()
 })
 
 
