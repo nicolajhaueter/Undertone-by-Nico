@@ -213,3 +213,25 @@ test('archive explains when the backend is unavailable', async ({ page }) => {
   await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.getByText('Your collection will take shape here.')).toBeVisible()
 })
+
+test('archive previews frame compositions wherever they sit on the canvas', async ({ page }) => {
+  await page.getByLabel('Choose clothing image').setInputFiles(image)
+  await page.getByRole('button', { name: 'Use original', exact: true }).click()
+  const piece = page.getByRole('button', { name: 'Move shirt.png' })
+  await piece.focus()
+  // Far beyond where the old fixed board ended.
+  for (let i = 0; i < 150; i++) await page.keyboard.press('Shift+ArrowRight')
+  await page.getByLabel('Composition title').fill('Off to the side')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByText(/^Saved · /)).toBeVisible()
+  expect([...api.compositions.values()][0].pieces[0].x).toBeGreaterThan(2000)
+
+  await page.getByRole('button', { name: 'Archive', exact: true }).click()
+  const frame = (await page.locator('.archive-preview').boundingBox())!
+  const preview = (await page.locator('.archive-preview img').boundingBox())!
+  expect(preview.x).toBeGreaterThanOrEqual(frame.x)
+  expect(preview.x + preview.width).toBeLessThanOrEqual(frame.x + frame.width + 1)
+  expect(preview.y + preview.height).toBeLessThanOrEqual(frame.y + frame.height + 1)
+  // Centred in the card.
+  expect(preview.x + preview.width / 2).toBeCloseTo(frame.x + frame.width / 2, -1)
+})

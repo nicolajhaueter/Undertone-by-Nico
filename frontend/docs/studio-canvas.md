@@ -31,7 +31,7 @@ The composition stores the shown version (original or cutout), position, width, 
 
 ## Archive and reopening
 
-Archive lists saved compositions, most recently updated first, each with a preview drawn from the stored images at their saved positions, sizes, shown versions and layer order. Open (or the preview) loads the composition into Studio exactly as saved; if Studio holds unsaved changes, it asks before replacing them and stays in Archive when declined. New clears Studio for a fresh composition, asking first in the same way.
+Archive lists saved compositions, most recently updated first, under the same slim app bar. Each preview frames the composition's own bounds, centred in the card, wherever it sits on the infinite canvas, using the stored images with their saved sizes, shown versions and layer order. Open (or the preview) loads the composition into Studio exactly as saved; if Studio holds unsaved changes, it asks before replacing them and stays in Archive when declined. New clears Studio for a fresh composition, asking first in the same way.
 
 Reopened pieces load their images from the API, so saving again uploads nothing unless a cutout is regenerated. Retry cutout on a reopened piece fetches the stored original once and runs the normal cutout flow. Delete asks for confirmation; the backend then removes images no other composition uses. If the backend is unavailable, Archive says so and offers Try again; Studio keeps working.
 
